@@ -1,0 +1,53 @@
+# Local test of the template's stack (not used by Railway).
+# SeaweedFS stands in for the Railway Bucket (S3-compatible, path style).
+name: her-2667
+services:
+  postgres:
+    image: postgres:18
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: localtestpw, POSTGRES_DB: railway }
+    volumes: [pg:/var/lib/postgresql]
+  s3:
+    image: chrislusf/seaweedfs:latest
+    command: server -dir=/data -s3 -s3.port=9000
+  cube-store-router:
+    build: ../cubestore
+    environment: &cs
+      RAILWAY_PRIVATE_DOMAIN: cube-store-router
+      CUBESTORE_ROLE: router
+      PORT: "3031"
+      CUBESTORE_WORKERS: cube-store-worker:10001
+      CUBESTORE_MINIO_BUCKET: cube
+      CUBESTORE_MINIO_SERVER_ENDPOINT: http://s3:9000
+      CUBESTORE_MINIO_ACCESS_KEY_ID: any
+      CUBESTORE_MINIO_SECRET_ACCESS_KEY: any
+      CUBESTORE_MINIO_REGION: us-east-1
+    volumes: [router:/cube/data]
+  cube-store-worker:
+    build: ../cubestore
+    environment:
+      <<: *cs
+      RAILWAY_PRIVATE_DOMAIN: cube-store-worker
+      CUBESTORE_ROLE: worker
+      CUBESTORE_WORKERS: ""
+      CUBESTORE_META_ADDR: cube-store-router:9999
+    volumes: [worker:/cube/data]
+  cube-api:
+    build: ../cube
+    ports: ["4000:4000", "15432:15432"]
+    environment: &cube
+      CUBEJS_API_SECRET: local-test-secret-0123456789abcdef0123456789abcdef
+      CUBEJS_CUBESTORE_HOST: cube-store-router
+      CUBEJS_DB_HOST: postgres
+      CUBEJS_DB_PORT: "5432"
+      CUBEJS_DB_NAME: railway
+      CUBEJS_DB_USER: postgres
+      CUBEJS_DB_PASS: localtestpw
+      CUBEJS_SQL_PASSWORD: localsqlpw
+      PORT: "4000"
+  cube-refresh-worker:
+    build: ../cube
+    environment:
+      <<: *cube
+      CUBEJS_REFRESH_WORKER: "true"
+      CUBEJS_SQL_PASSWORD: ""
+volumes: { pg: {}, router: {}, worker: {} }

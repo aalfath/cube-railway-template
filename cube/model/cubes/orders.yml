@@ -1,0 +1,48 @@
+# Sample cube over cube_demo.orders, the table the template seeds in the bundled Postgres.
+# Replace or extend it with cubes for your own tables. Docs: https://cube.dev/docs/product/data-modeling/overview
+cubes:
+  - name: orders
+    sql_table: cube_demo.orders
+
+    measures:
+      - name: count
+        type: count
+      - name: total_amount
+        sql: amount
+        type: sum
+      - name: average_amount
+        sql: amount
+        type: avg
+
+    dimensions:
+      - name: id
+        sql: id
+        type: number
+        primary_key: true
+      - name: status
+        sql: status
+        type: string
+      - name: category
+        sql: category
+        type: string
+      - name: city
+        sql: city
+        type: string
+      - name: created_at
+        sql: created_at
+        type: time
+
+    # Built by the Cube Refresh Worker and stored in Cube Store.
+    pre_aggregations:
+      - name: orders_by_day
+        measures:
+          - CUBE.count
+          - CUBE.total_amount
+        dimensions:
+          - CUBE.status
+          - CUBE.category
+          - CUBE.city
+        time_dimension: CUBE.created_at
+        granularity: day
+        refresh_key:
+          every: 1 hour
