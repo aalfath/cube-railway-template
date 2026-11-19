@@ -13,7 +13,6 @@ services:
     build: ../cubestore
     environment: &cs
       RAILWAY_PRIVATE_DOMAIN: cube-store-router
-      CUBESTORE_ROLE: router
       PORT: "3031"
       CUBESTORE_WORKERS: cube-store-worker:10001
       CUBESTORE_MINIO_BUCKET: cube
@@ -27,7 +26,6 @@ services:
     environment:
       <<: *cs
       RAILWAY_PRIVATE_DOMAIN: cube-store-worker
-      CUBESTORE_ROLE: worker
       CUBESTORE_WORKERS: ""
       CUBESTORE_META_ADDR: cube-store-router:9999
     volumes: [worker:/cube/data]

@@ -17,7 +17,12 @@ if [ -z "$CUBESTORE_MINIO_BUCKET" ]; then
   echo "start: no bucket configured; using $CUBESTORE_REMOTE_DIR on the volume" >&2
 fi
 
-case "${CUBESTORE_ROLE:-router}" in
+# Role: a node that knows the router's metastore address (CUBESTORE_META_ADDR) is a worker.
+if [ -z "$CUBESTORE_ROLE" ]; then
+  if [ -n "$CUBESTORE_META_ADDR" ]; then CUBESTORE_ROLE=worker; else CUBESTORE_ROLE=router; fi
+fi
+
+case "$CUBESTORE_ROLE" in
   router)
     export CUBESTORE_SERVER_NAME="${CUBESTORE_SERVER_NAME:-$RAILWAY_PRIVATE_DOMAIN:9999}"
     export CUBESTORE_META_BIND_ADDR="${CUBESTORE_META_BIND_ADDR:-[::]:9999}"
@@ -25,8 +30,12 @@ case "${CUBESTORE_ROLE:-router}" in
     export CUBESTORE_BIND_ADDR="${CUBESTORE_BIND_ADDR:-[::]:3306}"
     # Health probes (/livez, /readyz) on Railway's PORT.
     export CUBESTORE_STATUS_BIND_ADDR="${CUBESTORE_STATUS_BIND_ADDR:-[::]:${PORT:-3031}}"
-    # CUBESTORE_WORKERS lists the worker(s) as host:port. Empty means the router does the work itself.
-    case "$CUBESTORE_WORKERS" in ""|:*|*",:"*) unset CUBESTORE_WORKERS; echo "start: no Cube Store workers set; the router runs queries itself" >&2 ;; esac
+    # CUBESTORE_WORKERS lists the workers as host:port,host:port. The default is the template's
+    # "Cube Store Worker" service. It isn't a reference variable because the worker already
+    # references the router, and a two-way reference would block Railway's deploy order.
+    # Set it to "none" to let the router run queries itself.
+    export CUBESTORE_WORKERS="${CUBESTORE_WORKERS:-cube-store-worker.railway.internal:10001}"
+    if [ "$CUBESTORE_WORKERS" = "none" ]; then unset CUBESTORE_WORKERS; fi
     unset CUBESTORE_META_ADDR CUBESTORE_WORKER_PORT
     ;;
   worker)
